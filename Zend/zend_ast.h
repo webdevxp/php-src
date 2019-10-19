@@ -138,6 +138,8 @@ enum _zend_ast_kind {
 	ZEND_AST_TRAIT_ALIAS,
 	ZEND_AST_GROUP_USE,
 	ZEND_AST_PROP_GROUP,
+	ZEND_AST_SWITCH_EXPR,
+	ZEND_AST_TYPE_GUARD,
 
 	/* 3 child nodes */
 	ZEND_AST_METHOD_CALL = 3 << ZEND_AST_NUM_CHILDREN_SHIFT,
@@ -246,6 +248,27 @@ static zend_always_inline zend_ast * zend_ast_create_ex_4(zend_ast_kind kind, ze
 	zend_ast *ast = zend_ast_create_4(kind, child1, child2, child3, child4);
 	ast->attr = attr;
 	return ast;
+}
+
+static zend_always_inline zend_ast *zend_ast_zval_null()
+{
+	zval zv;
+	ZVAL_NULL(&zv);
+	return zend_ast_create_zval(&zv);
+}
+
+static zend_always_inline zend_ast *zend_ast_zval_false()
+{
+	zval zv;
+	ZVAL_FALSE(&zv);
+	return zend_ast_create_zval(&zv);
+}
+
+static zend_always_inline zend_ast *zend_ast_zval_true()
+{
+	zval zv;
+	ZVAL_TRUE(&zv);
+	return zend_ast_create_zval(&zv);
 }
 
 ZEND_API zend_ast * ZEND_FASTCALL zend_ast_create_list_0(zend_ast_kind kind);

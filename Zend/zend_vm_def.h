@@ -1511,7 +1511,7 @@ ZEND_VM_HELPER(zend_pre_dec_helper, VAR|CV, ANY)
 
 	SAVE_OPLINE();
 	if (OP1_TYPE == IS_CV && UNEXPECTED(Z_TYPE_P(var_ptr) == IS_UNDEF)) {
-		ZVAL_NULL(var_ptr);		
+		ZVAL_NULL(var_ptr);
 		ZVAL_UNDEFINED_OP1();
 	}
 
@@ -2267,7 +2267,7 @@ ZEND_VM_C_LABEL(fetch_obj_is_fast_copy):
 		}
 
 		retval = zobj->handlers->read_property(zobj, name, BP_VAR_IS, cache_slot, EX_VAR(opline->result.var));
- 
+
 		if (OP2_TYPE != IS_CONST) {
 			zend_tmp_string_release(tmp_name);
 		}
@@ -5585,10 +5585,10 @@ ZEND_VM_HANDLER(147, ZEND_ADD_ARRAY_UNPACK, ANY, ANY)
 {
 	USE_OPLINE
 	zval *op1;
-	
+
 	SAVE_OPLINE();
 	op1 = GET_OP1_ZVAL_PTR(BP_VAR_R);
-	
+
 ZEND_VM_C_LABEL(add_unpack_again):
 	if (EXPECTED(Z_TYPE_P(op1) == IS_ARRAY)) {
 		HashTable *ht = Z_ARRVAL_P(op1);
@@ -5629,11 +5629,11 @@ ZEND_VM_C_LABEL(add_unpack_again):
 				}
 				HANDLE_EXCEPTION();
 			}
-			
+
 			if (iter->funcs->rewind) {
 				iter->funcs->rewind(iter);
 			}
-			
+
 			for (; iter->funcs->valid(iter) == SUCCESS; ) {
 				zval *val;
 
@@ -5682,7 +5682,7 @@ ZEND_VM_C_LABEL(add_unpack_again):
 	} else {
 		zend_throw_error(NULL, "Only arrays and Traversables can be unpacked");
 	}
-	
+
 	FREE_OP1();
 	ZEND_VM_NEXT_OPCODE_CHECK_EXCEPTION();
 }
@@ -7937,6 +7937,150 @@ ZEND_VM_C_LABEL(type_check_resource):
 	} else {
 		ZEND_VM_SMART_BRANCH(result, 0);
 	}
+}
+
+ZEND_VM_HOT_HANDLER(195, ZEND_TYPE_GUARD, CONST|TMP|VAR|CV, UNUSED|CLASS_FETCH|CONST, TYPE_MASK)
+{
+	USE_OPLINE
+	zval *value;
+
+	SAVE_OPLINE();
+
+	if ((OP1_TYPE & (IS_CV | IS_VAR)) && zend_type_guard_by_ref(opline->extended_value)) {
+		value = GET_OP1_ZVAL_PTR_PTR(BP_VAR_W);
+
+		if (Z_TYPE_P(value) == IS_INDIRECT) {
+			value = Z_INDIRECT_P(value);
+		}
+
+		if (Z_ISREF_P(value)) {
+			value = Z_REFVAL_P(value);
+		}
+	} else {
+		value = GET_OP1_ZVAL_PTR_UNDEF(BP_VAR_R);
+
+		if (OP1_TYPE == IS_VAR && UNEXPECTED(Z_TYPE_P(value) == IS_INDIRECT)) {
+			value = Z_INDIRECT_P(value);
+		}
+
+		if ((OP1_TYPE & (IS_CV | IS_VAR)) && Z_ISREF_P(value)) {
+			value = Z_REFVAL_P(value);
+		} else if (OP1_TYPE == IS_CV && UNEXPECTED(Z_TYPE_P(value) == IS_UNDEF)) {
+			zend_string *cv = CV_DEF_OF(EX_VAR_TO_NUM(opline->op1.var));
+
+			zend_throw_exception_ex(
+				zend_ce_type_error,
+				0,
+				"Use of type guard on undefined variable %s",
+				ZSTR_VAL(cv)
+			);
+			HANDLE_EXCEPTION();
+		}
+	}
+
+	if (Z_TYPE_P(value) == IS_NULL && zend_type_guard_nullable(opline->extended_value)) {
+		ZEND_VM_NEXT_OPCODE();
+	}
+
+	uint32_t shifted = zend_type_guard_shifted_flag(opline->extended_value);
+
+	if (OP2_TYPE == IS_UNUSED && shifted) {
+		zend_bool result = ((shifted >> (uint32_t)Z_TYPE_P(value)) & 1);
+
+		if (result) {
+			ZEND_VM_NEXT_OPCODE();
+		}
+
+		if (shifted & (1 << IS_CALLABLE)) {
+			char *error;
+
+			result = zend_is_callable_ex(value, NULL, 0, NULL, NULL, &error);
+
+			if (error) {
+				efree(error);
+			}
+		} else if (shifted & (1 << IS_ITERABLE)) {
+			result = zend_is_iterable(value);
+		}
+
+		if (UNEXPECTED(!result)) {
+			FREE_OP1();
+			zend_throw_exception_ex(
+				zend_ce_type_error,
+				0,
+				"Value is expected to be %s%s, %s given",
+				zend_type_guard_type_name(opline->extended_value),
+				zend_type_guard_nullable(opline->extended_value)
+					? " or null"
+					: "",
+				zend_zval_type_name(value)
+			);
+			HANDLE_EXCEPTION();
+		}
+	} else {
+		zend_class_entry *ce;
+
+		if (OP2_TYPE == IS_CONST) {
+			ce = CACHED_PTR(shifted);
+
+			if (UNEXPECTED(ce == NULL)) {
+				ce = zend_fetch_class_by_name(
+					Z_STR_P(RT_CONSTANT(opline, opline->op2)),
+					Z_STR_P(RT_CONSTANT(opline, opline->op2) + 1),
+					ZEND_FETCH_CLASS_EXCEPTION
+				);
+
+				if (EXPECTED(ce)) {
+					CACHE_PTR(shifted, ce);
+				} else {
+					ZEND_ASSERT(EG(exception));
+					FREE_OP1();
+					HANDLE_EXCEPTION();
+				}
+			}
+		} else if (OP2_TYPE == IS_UNUSED) {
+			ce = zend_fetch_class(NULL, opline->op2.num);
+
+			if (UNEXPECTED(ce == NULL)) {
+				ZEND_ASSERT(EG(exception));
+				FREE_OP1();
+				HANDLE_EXCEPTION();
+			}
+		}
+
+		if (EXPECTED(Z_TYPE_P(value) == IS_OBJECT)) {
+			if (UNEXPECTED(!instanceof_function(Z_OBJCE_P(value), ce))) {
+				FREE_OP1();
+				zend_throw_exception_ex(
+					zend_ce_type_error,
+					0,
+					"Value is expected to be an instance of %s%s, "
+					"instance of %s given",
+					ZSTR_VAL(ce->name),
+					zend_type_guard_nullable(opline->extended_value)
+						? " or null"
+						: "",
+					ZSTR_VAL(Z_OBJCE_P(value)->name)
+				);
+				HANDLE_EXCEPTION();
+			}
+		} else {
+			FREE_OP1();
+			zend_throw_exception_ex(
+				zend_ce_type_error,
+				0,
+				"Value is expected to be an instance of %s%s, "
+				"%s given",
+				ZSTR_VAL(ce->name),
+				zend_type_guard_nullable(opline->extended_value)
+					? " or null"
+					: "",
+				zend_zval_type_name(value)
+			);
+			HANDLE_EXCEPTION();
+		}
+	}
+	ZEND_VM_NEXT_OPCODE();
 }
 
 ZEND_VM_HOT_HANDLER(122, ZEND_DEFINED, CONST, ANY, CACHE_SLOT)

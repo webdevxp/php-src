@@ -227,6 +227,9 @@ static YYSIZE_T zend_yytnamerr(char*, const char*);
 /* Token used to force a parse error from the lexer */
 %token T_ERROR
 
+/* Alternate tokens used to distinguish contexts */
+%token T_ALT_SWITCH      "switch (T_SWITCH)"
+
 %type <ast> top_statement namespace_name name statement function_declaration_statement
 %type <ast> class_declaration_statement trait_declaration_statement
 %type <ast> interface_declaration_statement interface_extends_list
@@ -256,6 +259,10 @@ static YYSIZE_T zend_yytnamerr(char*, const char*);
 %type <ast> isset_variable type return_type type_expr
 %type <ast> identifier
 %type <ast> inline_function
+%type <ast> switch_condition switch_expr_block
+%type <ast> switch_expr_case_list switch_expr_case switch_expr_case_expr_list
+%type <ast> switch_expr_case_value
+%type <ast> type_guard
 
 %type <num> returns_ref function fn is_reference is_variadic variable_modifiers
 %type <num> method_modifiers non_empty_member_modifiers member_modifier
@@ -433,8 +440,8 @@ statement:
 			{ $$ = zend_ast_create(ZEND_AST_DO_WHILE, $2, $5); }
 	|	T_FOR '(' for_exprs ';' for_exprs ';' for_exprs ')' for_statement
 			{ $$ = zend_ast_create(ZEND_AST_FOR, $3, $5, $7, $9); }
-	|	T_SWITCH '(' expr ')' switch_case_list
-			{ $$ = zend_ast_create(ZEND_AST_SWITCH, $3, $5); }
+	|	T_SWITCH switch_condition switch_case_list
+			{ $$ = zend_ast_create(ZEND_AST_SWITCH, $2, $3); }
 	|	T_BREAK optional_expr ';'		{ $$ = zend_ast_create(ZEND_AST_BREAK, $2); }
 	|	T_CONTINUE optional_expr ';'	{ $$ = zend_ast_create(ZEND_AST_CONTINUE, $2); }
 	|	T_RETURN optional_expr ';'		{ $$ = zend_ast_create(ZEND_AST_RETURN, $2); }
@@ -582,10 +589,10 @@ switch_case_list:
 
 case_list:
 		/* empty */ { $$ = zend_ast_create_list(0, ZEND_AST_SWITCH_LIST); }
-	|	case_list T_CASE expr case_separator inner_statement_list
-			{ $$ = zend_ast_list_add($1, zend_ast_create(ZEND_AST_SWITCH_CASE, $3, $5)); }
-	|	case_list T_DEFAULT case_separator inner_statement_list
-			{ $$ = zend_ast_list_add($1, zend_ast_create(ZEND_AST_SWITCH_CASE, NULL, $4)); }
+	|	case_list T_CASE expr case_separator { LANG_SCNG(prev_token) = 0; } inner_statement_list
+			{ $$ = zend_ast_list_add($1, zend_ast_create(ZEND_AST_SWITCH_CASE, $3, $6)); }
+	|	case_list T_DEFAULT case_separator { LANG_SCNG(prev_token) = 0; } inner_statement_list
+			{ $$ = zend_ast_list_add($1, zend_ast_create(ZEND_AST_SWITCH_CASE, NULL, $5)); }
 ;
 
 case_separator:
@@ -875,6 +882,106 @@ new_expr:
 			{ $$ = $2; }
 ;
 
+switch_condition:
+	/* empty */ {
+		$$ = zend_ast_zval_true();
+	}
+|	'(' expr ')' {
+		$$ = $2;
+	}
+;
+
+switch_expr_block:
+	'{' '}'	{
+		$$ = zend_ast_create_list(0, ZEND_AST_SWITCH_LIST);
+	}
+|	'{' switch_expr_case_list possible_comma '}' {
+		$$ = zend_ast_create_list(0, ZEND_AST_SWITCH_LIST);
+
+		zend_ast_list *list = zend_ast_get_list($2);
+		uint32_t i, j;
+
+		for (i = 0; i < list->children; i++) {
+			zend_ast *item = list->child[i];
+			zend_ast_list *expr_list = item->child[0]
+				? zend_ast_get_list(item->child[0])
+				: NULL;
+			zend_ast *value_ast = item->child[1];
+
+			if (expr_list) {
+				for (j = 0; j < expr_list->children; j++) {
+					$$ = zend_ast_list_add(
+						$$,
+						zend_ast_create(
+							ZEND_AST_SWITCH_CASE,
+							expr_list->child[j],
+							value_ast
+						)
+					);
+				}
+
+				expr_list->children = 0;
+			} else {
+				$$ = zend_ast_list_add(
+					$$,
+					zend_ast_create(
+						ZEND_AST_SWITCH_CASE,
+						NULL,
+						value_ast
+					)
+				);
+			}
+		}
+
+		list->children = 0;
+	}
+;
+
+switch_expr_case_list:
+	switch_expr_case {
+		$$ = zend_ast_create_list(1, ZEND_AST_SWITCH_LIST, $1);
+	}
+|	switch_expr_case_list ',' switch_expr_case {
+		$$ = zend_ast_list_add($1, $3);
+	}
+;
+
+switch_expr_case:
+	T_CASE switch_expr_case_expr_list T_DOUBLE_ARROW switch_expr_case_value {
+		$$ = zend_ast_create(ZEND_AST_SWITCH_CASE, $2, $4);
+	}
+|	T_DEFAULT T_DOUBLE_ARROW switch_expr_case_value {
+		$$ = zend_ast_create(ZEND_AST_SWITCH_CASE, NULL, $3);
+	}
+;
+
+switch_expr_case_value:
+	expr {
+		$$ = $1;
+	}
+|	T_THROW expr {
+		$$ = zend_ast_create(ZEND_AST_THROW, $2);
+	}
+|	T_RETURN optional_expr {
+		$$ = zend_ast_create(ZEND_AST_RETURN, $2);
+	}
+;
+
+switch_expr_case_expr_list:
+	expr {
+		$$ = zend_ast_create_list(1, ZEND_AST_EXPR_LIST, $1);
+	}
+|	switch_expr_case_expr_list ',' expr {
+		$$ = zend_ast_list_add($1, $3);
+	}
+;
+
+type_guard:
+	'<' type_expr '>' {
+		$$ = $2;
+	}
+;
+
 expr:
 		variable
 			{ $$ = $1; }
@@ -886,6 +993,13 @@ expr:
 			{ $$ = zend_ast_create(ZEND_AST_ASSIGN, $1, $3); }
 	|	variable '=' '&' variable
 			{ $$ = zend_ast_create(ZEND_AST_ASSIGN_REF, $1, $4); }
+	|	variable '=' '&' type_guard variable {
+			$$ = zend_ast_create(
+				ZEND_AST_ASSIGN_REF,
+				$1,
+				zend_ast_create_ex(ZEND_AST_TYPE_GUARD, 1, $4, $5)
+			);
+		}
 	|	T_CLONE expr { $$ = zend_ast_create(ZEND_AST_CLONE, $2); }
 	|	variable T_PLUS_EQUAL expr
 			{ $$ = zend_ast_create_assign_op(ZEND_ADD, $1, $3); }
@@ -993,6 +1107,12 @@ expr:
 	|	T_YIELD_FROM expr { $$ = zend_ast_create(ZEND_AST_YIELD_FROM, $2); CG(extra_fn_flags) |= ZEND_ACC_GENERATOR; }
 	|	inline_function { $$ = $1; }
 	|	T_STATIC inline_function { $$ = $2; ((zend_ast_decl *) $$)->flags |= ZEND_ACC_STATIC; }
+	|	T_ALT_SWITCH switch_condition switch_expr_block {
+			$$ = zend_ast_create(ZEND_AST_SWITCH_EXPR, $2, $3);
+		}
+	|	'<' type_expr '>' %prec T_NEW expr {
+			$$ = zend_ast_create(ZEND_AST_TYPE_GUARD, $2, $4);
+		}
 ;
 
 
@@ -1234,8 +1354,24 @@ array_pair:
 			{ $$ = zend_ast_create(ZEND_AST_ARRAY_ELEM, $1, NULL); }
 	|	expr T_DOUBLE_ARROW '&' variable
 			{ $$ = zend_ast_create_ex(ZEND_AST_ARRAY_ELEM, 1, $4, $1); }
+	|	expr T_DOUBLE_ARROW '&' type_guard variable {
+			$$ = zend_ast_create_ex(
+				ZEND_AST_ARRAY_ELEM,
+				1,
+				zend_ast_create_ex(ZEND_AST_TYPE_GUARD, 1, $4, $5),
+				$1
+			);
+		}
 	|	'&' variable
 			{ $$ = zend_ast_create_ex(ZEND_AST_ARRAY_ELEM, 1, $2, NULL); }
+	|	'&' type_guard variable {
+			$$ = zend_ast_create_ex(
+				ZEND_AST_ARRAY_ELEM,
+				1,
+				zend_ast_create_ex(ZEND_AST_TYPE_GUARD, 1, $2, $3),
+				NULL
+			);
+		}
 	|	T_ELLIPSIS expr
 			{ $$ = zend_ast_create(ZEND_AST_UNPACK, $2); }
 	|	expr T_DOUBLE_ARROW T_LIST '(' array_pair_list ')'
