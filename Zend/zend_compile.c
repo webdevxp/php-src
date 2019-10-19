@@ -5189,28 +5189,29 @@ void zend_compile_type_guard(znode *result, zend_ast *ast) /* {{{ */
 {
 	zend_ast *type_ast = ast->child[0];
 	zend_ast *value_ast = ast->child[1];
-	zend_string *name = zend_ast_get_str(type_ast);
 	zend_uchar builtin_type = 0;
 	zend_bool by_ref = ast->attr;
 
-	if (zend_string_equals_literal_ci(name, "bool")) {
-		builtin_type = _IS_BOOL;
-	} else if (zend_string_equals_literal_ci(name, "int")) {
-		builtin_type = IS_LONG;
-	} else if (zend_string_equals_literal_ci(name, "float")) {
-		builtin_type = IS_DOUBLE;
-	} else if (zend_string_equals_literal_ci(name, "string")) {
-		builtin_type = IS_STRING;
-	} else if (zend_string_equals_literal_ci(name, "array")) {
-		builtin_type = IS_ARRAY;
-	} else if (zend_string_equals_literal_ci(name, "object")) {
-		builtin_type = IS_OBJECT;
-	} else if (zend_string_equals_literal_ci(name, "callable")) {
-		builtin_type = IS_CALLABLE;
-	} else if (zend_string_equals_literal_ci(name, "iterable")) {
-		builtin_type = IS_ITERABLE;
-	} else if (zend_string_equals_literal_ci(name, "void")) {
-		zend_error_noreturn(E_COMPILE_ERROR, "Cannot use void as type guard");
+	if (type_ast->kind == ZEND_AST_TYPE) {
+		builtin_type = type_ast->attr;
+	} else {
+		zend_string *name = zend_ast_get_str(type_ast);
+
+		if (zend_string_equals_literal_ci(name, "bool")) {
+			builtin_type = _IS_BOOL;
+		} else if (zend_string_equals_literal_ci(name, "int")) {
+			builtin_type = IS_LONG;
+		} else if (zend_string_equals_literal_ci(name, "float")) {
+			builtin_type = IS_DOUBLE;
+		} else if (zend_string_equals_literal_ci(name, "string")) {
+			builtin_type = IS_STRING;
+		} else if (zend_string_equals_literal_ci(name, "object")) {
+			builtin_type = IS_OBJECT;
+		} else if (zend_string_equals_literal_ci(name, "iterable")) {
+			builtin_type = IS_ITERABLE;
+		} else if (zend_string_equals_literal_ci(name, "void")) {
+			zend_error_noreturn(E_COMPILE_ERROR, "Cannot use void as type guard");
+		}
 	}
 
 	zend_op *opline;
