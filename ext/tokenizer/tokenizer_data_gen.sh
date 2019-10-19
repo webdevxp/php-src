@@ -45,7 +45,7 @@ echo '/*
 
 echo 'void tokenizer_register_constants(INIT_FUNC_ARGS) {' >> $outfile
 awk '
-	/^    T_(NOELSE|ERROR|ALT_)/ { next }
+	/^    T_(NOELSE|ERROR)/ { next }
 	/^    T_/  { print "	REGISTER_LONG_CONSTANT(\"" $1 "\", " $1 ", CONST_CS | CONST_PERSISTENT);" }
 ' < $infile >> $outfile
 echo '	REGISTER_LONG_CONSTANT("T_DOUBLE_COLON", T_PAAMAYIM_NEKUDOTAYIM, CONST_CS | CONST_PERSISTENT);' >> $outfile
@@ -63,7 +63,7 @@ awk '
 		print "		case T_PAAMAYIM_NEKUDOTAYIM: return \"T_DOUBLE_COLON\";"
 		next
 	}
-	/^    T_(NOELSE|ERROR|ALT_)/ { next }
+	/^    T_(NOELSE|ERROR)/ { next }
 	/^    T_/ {
 		print "		case " $1 ": return \"" $1 "\";"
 	}

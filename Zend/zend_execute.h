@@ -294,53 +294,6 @@ static zend_always_inline void zend_vm_stack_free_call_frame(zend_execute_data *
 	zend_vm_stack_free_call_frame_ex(ZEND_CALL_INFO(call), call);
 }
 
-static zend_always_inline zend_bool zend_type_guard_nullable(uint32_t flag)
-{
-	return (flag & 1) == 1;
-}
-
-static zend_always_inline zend_bool zend_type_guard_by_ref(uint32_t flag)
-{
-	return (flag & 2) == 2;
-}
-
-static zend_always_inline uint32_t zend_type_guard_shifted_flag(uint32_t flag)
-{
-	return flag >> 2;
-}
-
-static zend_always_inline const char *zend_type_guard_type_name(uint32_t flag)
-{
-	switch (zend_type_guard_shifted_flag(flag)) {
-		case (1 << IS_NULL):
-			return "null";
-		case (1 << IS_FALSE):
-			return "false";
-		case (1 << IS_TRUE):
-			return "true";
-		case (1 << IS_LONG):
-			return "int";
-		case (1 << IS_DOUBLE):
-			return "float";
-		case (1 << IS_STRING):
-			return "string";
-		case (1 << IS_ARRAY):
-			return "array";
-		case (1 << IS_OBJECT):
-			return "object";
-		case (1 << IS_RESOURCE):
-			return "resource";
-		case (1 << IS_CALLABLE):
-			return "callable";
-		case (1 << IS_ITERABLE):
-			return "iterable";
-		case ((1 << IS_FALSE) | (1 << IS_TRUE)):
-			return "bool";
-		default:
-			return "unknown";
-	}
-}
-
 /* services */
 ZEND_API const char *get_active_class_name(const char **space);
 ZEND_API const char *get_active_function_name(void);

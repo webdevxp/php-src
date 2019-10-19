@@ -101,7 +101,7 @@ static void zend_dump_class_fetch_type(uint32_t fetch_type)
 			break;
 	}
 	if (fetch_type & ZEND_FETCH_CLASS_NO_AUTOLOAD) {
-			fprintf(stderr, " (no-autoload)");
+			fprintf(stderr, " (no-autolod)");
 	}
 	if (fetch_type & ZEND_FETCH_CLASS_SILENT) {
 			fprintf(stderr, " (silent)");
@@ -484,58 +484,39 @@ static void zend_dump_op(const zend_op_array *op_array, const zend_basic_block *
 				break;
 		}
 	} else if (ZEND_VM_EXT_TYPE_MASK == (flags & ZEND_VM_EXT_MASK)) {
-		/* ZEND_TYPE_GUARD uses first bit to determine nullability */
-		if (opline->extended_value & 1) {
-			fprintf(stderr, " (?");
-		} else {
-			fprintf(stderr, " (");
-		}
-		uint32_t shifted = opline->opcode == ZEND_TYPE_GUARD
-			? opline->extended_value >> 2
-			: opline->extended_value;
-		switch (shifted) {
+		switch (opline->extended_value) {
 			case (1<<IS_NULL):
-				fprintf(stderr, "null)");
+				fprintf(stderr, " (null)");
 				break;
 			case (1<<IS_FALSE):
-				fprintf(stderr, "false)");
+				fprintf(stderr, " (false)");
 				break;
 			case (1<<IS_TRUE):
-				fprintf(stderr, "true)");
+				fprintf(stderr, " (true)");
 				break;
 			case (1<<IS_LONG):
-				fprintf(stderr, "long)");
+				fprintf(stderr, " (long)");
 				break;
 			case (1<<IS_DOUBLE):
-				fprintf(stderr, "double)");
+				fprintf(stderr, " (double)");
 				break;
 			case (1<<IS_STRING):
-				fprintf(stderr, "string)");
+				fprintf(stderr, " (string)");
 				break;
 			case (1<<IS_ARRAY):
-				fprintf(stderr, "array)");
+				fprintf(stderr, " (array)");
 				break;
 			case (1<<IS_OBJECT):
-				fprintf(stderr, "object)");
+				fprintf(stderr, " (object)");
 				break;
 			case (1<<IS_RESOURCE):
-				fprintf(stderr, "resource)");
-				break;
-			case (1<<IS_CALLABLE):
-				fprintf(stderr, "callable)");
-				break;
-			case (1<<IS_ITERABLE):
-				fprintf(stderr, "iterable)");
+				fprintf(stderr, " (resource)");
 				break;
 			case ((1<<IS_FALSE)|(1<<IS_TRUE)):
-				fprintf(stderr, "bool)");
+				fprintf(stderr, " (bool)");
 				break;
 			default:
-				if (opline->opcode == ZEND_TYPE_GUARD) {
-					fprintf(stderr, "object)");
-				} else {
-					fprintf(stderr, "\?\?\?)");
-				}
+				fprintf(stderr, " (\?\?\?)");
 				break;
 		}
 	} else if (ZEND_VM_EXT_EVAL == (flags & ZEND_VM_EXT_MASK)) {
@@ -707,7 +688,7 @@ static void zend_dump_op(const zend_op_array *op_array, const zend_basic_block *
 	}
 	if (opline->result_type == IS_CONST) {
 		zend_dump_const(CRT_CONSTANT(opline->result));
-#if 1
+#if 0
 	} else if (opline->result_type & IS_SMART_BRANCH_JMPZ) {
 		fprintf(stderr, " jmpz");
 	} else if (opline->result_type & IS_SMART_BRANCH_JMPNZ) {

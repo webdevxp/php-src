@@ -281,7 +281,6 @@ struct _zend_php_scanner_globals {
 	unsigned char *yy_marker;
 	unsigned char *yy_limit;
 	int yy_state;
-	int prev_token;
 	zend_stack state_stack;
 	zend_ptr_stack heredoc_label_stack;
 	zend_bool heredoc_scan_ahead;

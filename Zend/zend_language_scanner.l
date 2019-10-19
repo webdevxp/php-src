@@ -231,8 +231,6 @@ ZEND_API void zend_save_lexical_state(zend_lex_state *lex_state)
 	lex_state->filename = zend_get_compiled_filename();
 	lex_state->lineno = CG(zend_lineno);
 
-	lex_state->prev_token = SCNG(prev_token);
-
 	lex_state->script_org = SCNG(script_org);
 	lex_state->script_org_size = SCNG(script_org_size);
 	lex_state->script_filtered = SCNG(script_filtered);
@@ -256,7 +254,6 @@ ZEND_API void zend_restore_lexical_state(zend_lex_state *lex_state)
 	SCNG(yy_cursor) = lex_state->yy_cursor;
 	SCNG(yy_marker) = lex_state->yy_marker;
 	SCNG(yy_limit)  = lex_state->yy_limit;
-	SCNG(yy_limit)  = lex_state->yy_limit;
 
 	zend_stack_destroy(&SCNG(state_stack));
 	SCNG(state_stack) = lex_state->state_stack;
@@ -269,8 +266,6 @@ ZEND_API void zend_restore_lexical_state(zend_lex_state *lex_state)
 	YYSETCONDITION(lex_state->yy_state);
 	CG(zend_lineno) = lex_state->lineno;
 	zend_restore_compiled_filename(lex_state->filename);
-
-	SCNG(prev_token) = lex_state->prev_token;
 
 	if (SCNG(script_filtered)) {
 		efree(SCNG(script_filtered));
@@ -1244,81 +1239,6 @@ static void copy_heredoc_label_stack(void *void_heredoc_label)
 		goto emit_token; \
 	} while (0)
 
-static zend_always_inline zend_bool is_expr_allowed(int prev_token)
-{
-	switch (SCNG(prev_token)) {
-		case '!':
-		case '&':
-		case '(':
-		case '*':
-		case '+':
-		case ',':
-		case '-':
-		case '.':
-		case '/':
-		case ':':
-		case '<':
-		case '=':
-		case '>':
-		case '?':
-		case '[':
-		case '^':
-		case '|':
-		case '~':
-		case T_INCLUDE:
-		case T_INCLUDE_ONCE:
-		case T_REQUIRE:
-		case T_REQUIRE_ONCE:
-		case T_LOGICAL_OR:
-		case T_LOGICAL_XOR:
-		case T_LOGICAL_AND:
-		case T_PRINT:
-		case T_YIELD:
-		case T_YIELD_FROM:
-		case T_PLUS_EQUAL:
-		case T_MINUS_EQUAL:
-		case T_MUL_EQUAL:
-		case T_DIV_EQUAL:
-		case T_CONCAT_EQUAL:
-		case T_MOD_EQUAL:
-		case T_AND_EQUAL:
-		case T_OR_EQUAL:
-		case T_XOR_EQUAL:
-		case T_SL_EQUAL:
-		case T_SR_EQUAL:
-		case T_COALESCE_EQUAL:
-		case T_BOOLEAN_OR:
-		case T_BOOLEAN_AND:
-		case T_IS_EQUAL:
-		case T_IS_NOT_EQUAL:
-		case T_IS_IDENTICAL:
-		case T_IS_NOT_IDENTICAL:
-		case T_IS_SMALLER_OR_EQUAL:
-		case T_IS_GREATER_OR_EQUAL:
-		case T_SPACESHIP:
-		case T_SL:
-		case T_SR:
-		case T_INT_CAST:
-		case T_DOUBLE_CAST:
-		case T_STRING_CAST:
-		case T_ARRAY_CAST:
-		case T_OBJECT_CAST:
-		case T_BOOL_CAST:
-		case T_UNSET_CAST:
-		case T_ECHO:
-		case T_RETURN:
-		case T_THROW:
-		case T_DOUBLE_ARROW:
-		case T_ELLIPSIS:
-		case T_COALESCE:
-		case T_POW:
-		case T_POW_EQUAL:
-			return 1;
-		default:
-			return 0;
-	}
-}
-
 int ZEND_FASTCALL lex_scan(zval *zendlval, zend_parser_stack_elem *elem)
 {
 int token;
@@ -1457,9 +1377,6 @@ NEWLINE ("\r"|"\n"|"\r\n")
 }
 
 <ST_IN_SCRIPTING>"switch" {
-	if (PARSER_MODE() && is_expr_allowed(SCNG(prev_token))) {
-		RETURN_TOKEN(T_ALT_SWITCH);
-	}
 	RETURN_TOKEN(T_SWITCH);
 }
 
@@ -2957,9 +2874,6 @@ emit_token_with_val:
 	}
 
 emit_token:
-	if (PARSER_MODE()) {
-		SCNG(prev_token) = token;
-	}
 	if (SCNG(on_event)) {
 		SCNG(on_event)(ON_TOKEN, token, start_line, SCNG(on_event_context));
 	}
