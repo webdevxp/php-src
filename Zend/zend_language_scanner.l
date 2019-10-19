@@ -1244,7 +1244,7 @@ static void copy_heredoc_label_stack(void *void_heredoc_label)
 		goto emit_token; \
 	} while (0)
 
-static zend_always_inline zend_bool is_expr_allowed(int prev_token)
+static zend_always_inline zend_bool is_expr_allowed()
 {
 	switch (SCNG(prev_token)) {
 		case '!':
@@ -1457,7 +1457,7 @@ NEWLINE ("\r"|"\n"|"\r\n")
 }
 
 <ST_IN_SCRIPTING>"switch" {
-	if (PARSER_MODE() && is_expr_allowed(SCNG(prev_token))) {
+	if (PARSER_MODE() && is_expr_allowed()) {
 		RETURN_TOKEN(T_ALT_SWITCH);
 	}
 	RETURN_TOKEN(T_SWITCH);
