@@ -648,7 +648,7 @@ struct _zend_execute_data {
 
 #endif
 
-/* constant-time constant */
+/* compile-time constant */
 # define CT_CONSTANT_EX(op_array, num) \
 	((op_array)->literals + (num))
 
