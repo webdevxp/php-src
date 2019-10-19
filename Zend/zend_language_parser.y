@@ -1358,12 +1358,12 @@ array_pair:
 			$$ = zend_ast_create_ex(
 				ZEND_AST_ARRAY_ELEM,
 				1,
-				zend_ast_create_ex(ZEND_AST_TYPE_GUARD, 1, $4, $5),
+				zend_ast_create_ex(ZEND_AST_TYPE_GUARD, 2, $4, $5),
 				$1
 			);
 		}
 	|	'&' variable
-			{ $$ = zend_ast_create_ex(ZEND_AST_ARRAY_ELEM, 1, $2, NULL); }
+			{ $$ = zend_ast_create_ex(ZEND_AST_ARRAY_ELEM, 2, $2, NULL); }
 	|	'&' type_guard variable {
 			$$ = zend_ast_create_ex(
 				ZEND_AST_ARRAY_ELEM,

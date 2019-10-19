@@ -5217,7 +5217,10 @@ void zend_compile_type_guard(znode *result, zend_ast *ast) /* {{{ */
 	zend_op *opline;
 
 	if (by_ref) {
-		zend_ensure_writable_variable(value_ast);
+		if (by_ref > 1) {
+			zend_ensure_writable_variable(value_ast);
+		}
+
 		zend_compile_var(result, value_ast, BP_VAR_W, 1);
 	} else {
 		zend_compile_expr(result, value_ast);
@@ -5225,13 +5228,10 @@ void zend_compile_type_guard(znode *result, zend_ast *ast) /* {{{ */
 
 	if (builtin_type) {
 		if (result->op_type == IS_CONST) {
-			if (Z_TYPE(result->u.constant) == builtin_type) {
-				return;
-			}
-
-			if (Z_TYPE(result->u.constant) == IS_ARRAY && builtin_type == IS_ITERABLE) {
-				return;
-			}
+			zend_error_noreturn(
+				E_COMPILE_ERROR,
+				"Cannot use type guard with constant expression"
+			);
 		}
 
 		opline = zend_emit_op(NULL, ZEND_TYPE_GUARD, result, NULL);
@@ -5262,7 +5262,7 @@ void zend_compile_type_guard(znode *result, zend_ast *ast) /* {{{ */
 		}
 	}
 
-	if ((type_ast->attr & ZEND_TYPE_NULLABLE) == ZEND_TYPE_NULLABLE) {
+	if (type_ast->attr & ZEND_TYPE_NULLABLE) {
 		opline->extended_value |= 1;
 	}
 

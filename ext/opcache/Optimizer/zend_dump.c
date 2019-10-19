@@ -490,9 +490,16 @@ static void zend_dump_op(const zend_op_array *op_array, const zend_basic_block *
 		} else {
 			fprintf(stderr, " (");
 		}
-		uint32_t shifted = opline->opcode == ZEND_TYPE_GUARD
-			? opline->extended_value >> 2
-			: opline->extended_value;
+		uint32_t shifted;
+		if (opline->opcode == ZEND_TYPE_GUARD) {
+			if (opline->op2_type == IS_UNUSED && opline->extended_value) {
+				shifted = opline->extended_value >> 2;
+			} else {
+				shifted = (1 << IS_OBJECT);
+			}
+		} else {
+			shifted = opline->extended_value;
+		}
 		switch (shifted) {
 			case (1<<IS_NULL):
 				fprintf(stderr, "null)");
