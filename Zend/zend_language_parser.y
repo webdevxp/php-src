@@ -962,9 +962,6 @@ switch_expr_case_value:
 |	T_THROW expr {
 		$$ = zend_ast_create(ZEND_AST_THROW, $2);
 	}
-|	T_RETURN optional_expr {
-		$$ = zend_ast_create(ZEND_AST_RETURN, $2);
-	}
 ;
 
 switch_expr_case_expr_list:

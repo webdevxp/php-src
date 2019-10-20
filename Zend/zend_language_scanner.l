@@ -1337,7 +1337,8 @@ EXPONENT_DNUM	(({LNUM}|{DNUM})[eE][+-]?{LNUM})
 HNUM	"0x"[0-9a-fA-F]+(_[0-9a-fA-F]+)*
 BNUM	"0b"[01]+(_[01]+)*
 LABEL	[a-zA-Z_\x80-\xff][a-zA-Z0-9_\x80-\xff]*
-WHITESPACE [ \n\r\t]+
+WHITESPACES [ \n\r\t]+
+MAYBE_WHITESPACES [ \n\r\t]*
 TABS_AND_SPACES [ \t]*
 TOKENS [;:,.\[\]()|^&+-/*=%!~$<>?@]
 ANY_CHAR [^]
@@ -1370,7 +1371,7 @@ NEWLINE ("\r"|"\n"|"\r\n")
 	RETURN_TOKEN(T_RETURN);
 }
 
-<ST_IN_SCRIPTING>"yield"{WHITESPACE}"from"[^a-zA-Z0-9_\x80-\xff] {
+<ST_IN_SCRIPTING>"yield"{WHITESPACES}"from"[^a-zA-Z0-9_\x80-\xff] {
 	yyless(yyleng - 1);
 	HANDLE_NEWLINES(yytext, yyleng);
 	RETURN_TOKEN(T_YIELD_FROM);
@@ -1520,7 +1521,7 @@ NEWLINE ("\r"|"\n"|"\r\n")
 	RETURN_TOKEN(T_OBJECT_OPERATOR);
 }
 
-<ST_IN_SCRIPTING,ST_LOOKING_FOR_PROPERTY>{WHITESPACE}+ {
+<ST_IN_SCRIPTING,ST_LOOKING_FOR_PROPERTY>{WHITESPACES}+ {
 	goto return_whitespace;
 }
 
@@ -2255,7 +2256,7 @@ inline_char_handler:
 	RETURN_OR_SKIP_TOKEN(T_COMMENT);
 }
 
-<ST_IN_SCRIPTING>"/*"|"/**"{WHITESPACE} {
+<ST_IN_SCRIPTING>"/*"|"/**"{WHITESPACES} {
 	int doc_com;
 
 	if (yyleng > 2) {

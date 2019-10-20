@@ -5125,7 +5125,7 @@ void zend_compile_switch_expr(znode *result, zend_ast *ast) /* {{{ */
 			}
 		}
 
-		if (value_ast->kind == ZEND_AST_THROW || value_ast->kind == ZEND_AST_RETURN) {
+		if (value_ast->kind == ZEND_AST_THROW) {
 			zend_compile_stmt(value_ast);
 			jmp_opnums[i] = 0;
 
